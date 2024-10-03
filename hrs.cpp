@@ -1,3 +1,4 @@
+
 #define BLYNK_TEMPLATE_ID "TMPL432NTVGlL"
 #define BLYNK_TEMPLATE_NAME "PATIENT MONITORING"
 #define BLYNK_AUTH_TOKEN "kaYAm-58zMKOqO4ex8GZTwutt9ToaG4S"
@@ -6,8 +7,6 @@
 // Wi-Fi credentials
 char ssid[] = "Savonia-guest";  // Enter your Wi-Fi SSID
 char pass[] = "";      // Enter your Wi-Fi Password
-
-
 #include "DFRobot_BloodOxygen_S.h"
 #include <SPI.h>
 #include <Wire.h>
@@ -46,15 +45,15 @@ DFRobot_BloodOxygen_S_HardWareUart MAX30102(&Serial1, 9600);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 float Low_body_temp = 18.0;
-float High_body_temp = 30.0;
+float High_body_temp = 35.0;
 
-int low_bpm = -1;
-int high_bpm = 180;
+int low_bpm = 50;
+int high_bpm = 190;
 
 void setup() {
   Serial.begin(115200);
 
-  dht.setup(12, DHTesp::DHT22); 
+  dht.setup(2, DHTesp::DHT22); 
 
   // Initialize the MAX30102 sensor
   while (false == MAX30102.begin()) {
@@ -77,7 +76,7 @@ void setup() {
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass, "blynk.cloud", 80);
 }
 void loop() {
-  Blynk.run();  // Run Blynk
+  Blynk.run();
   HRV();
   DHT();
   }
@@ -89,37 +88,49 @@ void HRV() {
   int Heartbeat = MAX30102._sHeartbeatSPO2.Heartbeat;
   float temperature = MAX30102.getTemperature_C();
 
-  Blynk.virtualWrite(V0, spo2);
-  Blynk.virtualWrite(V1, Heartbeat);
-  Blynk.virtualWrite(V2, temperature);  // Send body temperature to Blynk
+
 
   // Check HeartRate thresholds
-  if (Heartbeat < high_bpm) {
-    Serial.print("High Heart Rate");
+  if (Heartbeat < high_bpm || Heartbeat< 0 ) {
+    Serial.println("Checking");
     Blynk.logEvent("high_bpm"); 
   } else if (Heartbeat > low_bpm) {
     Serial.print("High Heart Rate");
-     
+    Blynk.logEvent("low_bpm"); 
     }
 
   // Check temperature thresholds
-  if (temperature < Low_body_temp) {
+  if (temperature < Low_body_temp ) {
     Serial.print("High Body Temperature");
     
   } else if (temperature > High_body_temp) {
     Serial.print("Low Body Temperature");
     Blynk.logEvent("low_temperature");
+    
   }
   // Print values to Serial Monitor
   Serial.print("SPO2: ");
+  if (spo2 < 0){
+    Serial.println("Checking");
+  }else{
   Serial.print(spo2);
   Serial.println("%");
+  Blynk.virtualWrite(V0, spo2);
+  }
+
   Serial.print("Heart rate: ");
+  if (Heartbeat< 0){
+    Serial.println("Checking");
+  }else{
   Serial.print(Heartbeat);
-  Serial.println(" bpm");
-  Serial.print("Board Temperature: ");
+  Serial.println("Times/min");
+  Blynk.virtualWrite(V1, Heartbeat);
+  }
+  
+  Serial.print("Body Temperature: ");
   Serial.print(temperature);
   Serial.println(" ℃");
+  Blynk.virtualWrite(V2, temperature);
 
   // Update OLED display
   display.clearDisplay();
@@ -129,15 +140,22 @@ void HRV() {
   // Display Heart Rate
   display.setCursor(0, 0); 
   display.setTextSize(2);
-  display.print("HR: ");
+  display.print("HR:");
+  if (Heartbeat < 0){
+    display.print("wait");
+  }else{
   display.print(Heartbeat);
+  display.println("T/mn");}
 
   // Display SPO2 level
   display.setCursor(0, 24);
   display.setTextSize(2);
-  display.print("SPO2: ");
+  display.print("SPO2:");
+  if (spo2 < 0){
+    display.print("wait");
+  }else{
   display.print(spo2);
-  display.println("%");
+  display.println("%");}
 
   // Display board temperature
   display.setCursor(0, 48);
@@ -159,9 +177,9 @@ void DHT()
 
   float humidity = dht.getHumidity();
   float temperature = dht.getTemperature();
-
   Blynk.virtualWrite(V3, humidity);
   Blynk.virtualWrite(V4, temperature);
+ 
 
   Serial.print(dht.getStatusString());
   Serial.print("\t");
@@ -171,3 +189,4 @@ void DHT()
   Serial.print("\t\t");
   delay(2000);
 }
+
